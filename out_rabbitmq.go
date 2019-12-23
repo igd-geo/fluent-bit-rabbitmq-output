@@ -8,7 +8,13 @@ import (
 	"github.com/fluent/fluent-bit-go/output"
 	"github.com/streadway/amqp"
 )
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"regexp"
+	"strings"
+)
 
 var (
 	connection *amqp.Connection
@@ -26,31 +32,38 @@ func FLBPluginRegister(def unsafe.Pointer) int {
 //export FLBPluginInit
 func FLBPluginInit(plugin unsafe.Pointer) int {
 	// Gets called only once for each instance you have configured.
+	var err error
 	host := output.FLBPluginConfigKey(plugin, "RabbitHost")
 	port := output.FLBPluginConfigKey(plugin, "RabbitPort")
 	user := output.FLBPluginConfigKey(plugin, "RabbitUser")
 	password := output.FLBPluginConfigKey(plugin, "RabbitPassword")
-	tn := output.FLBPluginConfigKey(plugin, "TopicName")
+	topicName = output.FLBPluginConfigKey(plugin, "TopicName")
 	topicType := output.FLBPluginConfigKey(plugin, "TopicType")
-	rk := output.FLBPluginConfigKey(plugin, "RoutingKey")
+	routingKey = output.FLBPluginConfigKey(plugin, "RoutingKey")
 
-	conn, err := amqp.Dial("amqp://" + user + ":" + password + "@" + host + ":" + port + "/")
+	err = routingKeyIsValid(routingKey)
+	if err != nil {
+		logError("The Parsing of the Routing-Key failed: ", err)
+		return output.FLB_ERROR
+	}
+
+	connection, err = amqp.Dial("amqp://" + user + ":" + password + "@" + host + ":" + port + "/")
 	if err != nil {
 		logError("Failed to establish a connection to RabbitMQ: ", err)
 		return output.FLB_ERROR
 	}
 
-	ch, err := conn.Channel()
+	channel, err = connection.Channel()
 	if err != nil {
 		logError("Failed to open a channel: ", err)
-		conn.Close()
+		connection.Close()
 		return output.FLB_ERROR
 	}
 
 	logInfo("Established successfully a connection to the RabbitMQ-Server")
 
-	err = ch.ExchangeDeclare(
-		tn,        // name
+	err = channel.ExchangeDeclare(
+		topicName, // name
 		topicType, // type
 		true,      // durable
 		false,     // auto-deleted
@@ -61,14 +74,10 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 
 	if err != nil {
 		logError("Failed to declare an exchange: ", err)
-		conn.Close()
+		connection.Close()
 		return output.FLB_ERROR
 	}
 
-	connection = conn
-	channel = ch
-	topicName = tn
-	routingKey = rk
 	return output.FLB_OK
 }
 
@@ -89,7 +98,7 @@ func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int 
 		timestamp := ts.(output.FLBTime)
 		println(timestamp.String())
 
-		parsedRecord := parseMap(record)
+		parsedRecord := parseRecord(record)
 
 		parsedRecord["@timestamp"] = timestamp.String()
 		parsedRecord["@tag"] = C.GoString(tag)
@@ -125,7 +134,7 @@ func FLBPluginExit() int {
 func main() {
 }
 
-func parseMap(mapInterface map[interface{}]interface{}) map[string]interface{} {
+func parseRecord(mapInterface map[interface{}]interface{}) map[string]interface{} {
 	parsedMap := make(map[string]interface{})
 	for k, v := range mapInterface {
 		switch t := v.(type) {
@@ -133,12 +142,48 @@ func parseMap(mapInterface map[interface{}]interface{}) map[string]interface{} {
 			// prevent encoding to base64
 			parsedMap[k.(string)] = string(t)
 		case map[interface{}]interface{}:
-			parsedMap[k.(string)] = parseMap(t)
+			parsedMap[k.(string)] = parseRecord(t)
 		default:
 			parsedMap[k.(string)] = v
 		}
 	}
 	return parsedMap
+}
+
+func routingKeyIsValid(rk string) error {
+	r, err := regexp.Compile(`^\$((\[\"([^\s\"]+)\"\])|(\[\'([^\s\']+)\'\])|(\[[1-9][0-9]*\])|(\[[0]\]))+$`)
+	if err != nil {
+		return err
+	}
+
+	if len(rk) <= 0 {
+		return errors.New("Routing-Key shouldn't be empty")
+	}
+
+	if strings.Contains(rk, ".") {
+		splittedRk := strings.Split(rk, ".")
+		if arrayContainsString(splittedRk, "") {
+			return errors.New("The given routing-key contains an empty value")
+		}
+		for _, subRk := range splittedRk {
+			if strings.HasPrefix(subRk, "$") {
+				if !r.MatchString(subRk) {
+					return fmt.Errorf("The record_accessor '%s' is invalid", rk)
+				}
+			}
+		}
+	} else {
+		if strings.HasPrefix(rk, "$") {
+			if !r.MatchString(rk) {
+				return fmt.Errorf("The record_accessor '%s' is invalid", rk)
+			}
+		}
+	}
+	return nil
+}
+
+func createRoutingKey(record map[string]interface{}) {
+
 }
 
 func logInfo(msg string) {
@@ -147,4 +192,13 @@ func logInfo(msg string) {
 
 func logError(msg string, err error) {
 	log.Printf("%s: %s", msg, err)
+}
+
+func arrayContainsString(arr []string, str string) bool {
+	for _, item := range arr {
+		if item == str {
+			return true
+		}
+	}
+	return false
 }
