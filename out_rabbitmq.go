@@ -16,11 +16,12 @@ import (
 )
 
 var (
-	connection          *amqp.Connection
-	channel             *amqp.Channel
-	topicName           string
-	routingKey          string
-	routingKeyDelimiter string
+	connection               *amqp.Connection
+	channel                  *amqp.Channel
+	topicName                string
+	routingKey               string
+	routingKeyDelimiter      string
+	removeRkValuesFromRecord bool
 )
 
 //export FLBPluginRegister
@@ -41,10 +42,18 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 	topicType := output.FLBPluginConfigKey(plugin, "TopicType")
 	routingKey = output.FLBPluginConfigKey(plugin, "RoutingKey")
 	routingKeyDelimiter = output.FLBPluginConfigKey(plugin, "RoutingKeyDelimiter")
+	removeRkValuesFromRecordString := output.FLBPluginConfigKey(plugin, "RemoveRkValuesFromRecord")
 
 	if len(routingKeyDelimiter) < 1 {
 		routingKeyDelimiter = "."
 		logInfo("The routing-key-delimiter is set to the default value '" + routingKeyDelimiter + "' ")
+	}
+
+	removeRkValuesFromRecord, err = strconv.ParseBool(removeRkValuesFromRecordString)
+
+	if err != nil {
+		logError("Couldn't parse RemoveRkValuesFromRecord to boolean: ", err)
+		return output.FLB_ERROR
 	}
 
 	err = routingKeyIsValid(routingKey, routingKeyDelimiter)
@@ -248,14 +257,17 @@ func extractValueFromRecord(record map[string]interface{}, keys []string) (strin
 		val, recordContainsKey := record[currentKey]
 		if len(keys) == 1 {
 			if recordContainsKey {
+				if removeRkValuesFromRecord {
+					delete(record, currentKey)
+				}
 				return fmt.Sprintf("%v", val), nil
 			}
 			return "", fmt.Errorf("Can't access the record with the given record-accessor '%s'", currentKey)
 		}
 
-		subRecord, recordContainsSubRecord := val.(map[string]interface{})
+		_, recordContainsSubRecord := val.(map[string]interface{})
 		if recordContainsSubRecord {
-			return extractValueFromRecord(subRecord, keys[1:])
+			return extractValueFromRecord(val.(map[string]interface{}), keys[1:])
 		}
 
 		recordArray, recordContainsArray := val.([]interface{})
@@ -291,6 +303,11 @@ func extractValueFromArray(arr []interface{}, keys []string) (string, error) {
 		val := arr[idx]
 
 		if len(keys) == 1 {
+			if removeRkValuesFromRecord {
+				arr[idx] = arr[len(arr)-1]
+				arr[len(arr)-1] = ""
+				arr = arr[:len(arr)-1]
+			}
 			return fmt.Sprintf("%v", val), nil
 		}
 
