@@ -18,7 +18,7 @@ import (
 var (
 	connection               *amqp.Connection
 	channel                  *amqp.Channel
-	topicName                string
+	exchangeName             string
 	routingKey               string
 	routingKeyDelimiter      string
 	removeRkValuesFromRecord bool
@@ -38,8 +38,8 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 	port := output.FLBPluginConfigKey(plugin, "RabbitPort")
 	user := output.FLBPluginConfigKey(plugin, "RabbitUser")
 	password := output.FLBPluginConfigKey(plugin, "RabbitPassword")
-	topicName = output.FLBPluginConfigKey(plugin, "TopicName")
-	topicType := output.FLBPluginConfigKey(plugin, "TopicType")
+	exchangeName = output.FLBPluginConfigKey(plugin, "ExchangeName")
+	exchangeType := output.FLBPluginConfigKey(plugin, "ExchangeType")
 	routingKey = output.FLBPluginConfigKey(plugin, "RoutingKey")
 	routingKeyDelimiter = output.FLBPluginConfigKey(plugin, "RoutingKeyDelimiter")
 	removeRkValuesFromRecordString := output.FLBPluginConfigKey(plugin, "RemoveRkValuesFromRecord")
@@ -78,13 +78,13 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 	logInfo("Established successfully a connection to the RabbitMQ-Server")
 
 	err = channel.ExchangeDeclare(
-		topicName, // name
-		topicType, // type
-		true,      // durable
-		false,     // auto-deleted
-		false,     // internal
-		false,     // no-wait
-		nil,       // arguments
+		exchangeName, // name
+		exchangeType, // type
+		true,         // durable
+		false,        // auto-deleted
+		false,        // internal
+		false,        // no-wait
+		nil,          // arguments
 	)
 
 	if err != nil {
@@ -130,10 +130,10 @@ func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int 
 		}
 
 		err = channel.Publish(
-			topicName, // exchange
-			rk,        // routing key
-			false,     // mandatory
-			false,     // immediate
+			exchangeName, // exchange
+			rk,           // routing key
+			false,        // mandatory
+			false,        // immediate
 			amqp.Publishing{
 				ContentType: "application/json",
 				Body:        jsonString,
