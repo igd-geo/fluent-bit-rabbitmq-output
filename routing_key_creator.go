@@ -8,21 +8,34 @@ import (
 )
 
 func CreateRoutingKey(rk string, record map[string]interface{}, rkDelimiter string) (string, error) {
+	var recordAccessorLookupTable map[string]string
+	var builder strings.Builder
+
 	recordAccessorRegex, err := regexp.Compile(`(\'[^\s\']+\')|(\"[^\s\"]+\")|(\[0\])|(\[[1-9][0-9]*\])`)
 	if err != nil {
 		return "", err
 	}
 
-	var builder strings.Builder
+	recordAccessorLookupTable = make(map[string]string)
+
 	recordAccessors := strings.Split(rk, rkDelimiter)
 
 	for idx, recordAccessor := range recordAccessors {
 		if strings.HasPrefix(recordAccessor, "$") {
-			subRk, err := extractValueFromRecord(record, recordAccessorRegex.FindAllString(recordAccessor, -1))
-			if err != nil {
-				return "", err
+
+			val, containsRecordAccessor := recordAccessorLookupTable[recordAccessor]
+
+			if containsRecordAccessor {
+				builder.WriteString(val)
+			} else {
+				subRk, err := extractValueFromRecord(record, recordAccessorRegex.FindAllString(recordAccessor, -1))
+				if err != nil {
+					return "", err
+				}
+
+				recordAccessorLookupTable[recordAccessor] = subRk
+				builder.WriteString(subRk)
 			}
-			builder.WriteString(subRk)
 		} else {
 			builder.WriteString(recordAccessor)
 		}
