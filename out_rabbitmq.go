@@ -18,6 +18,8 @@ var (
 	routingKey               string
 	routingKeyDelimiter      string
 	removeRkValuesFromRecord bool
+	addTagToRecord           bool
+	addTimestampToRecord     bool
 )
 
 //export FLBPluginRegister
@@ -39,17 +41,30 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 	exchangeType := output.FLBPluginConfigKey(plugin, "ExchangeType")
 	routingKey = output.FLBPluginConfigKey(plugin, "RoutingKey")
 	routingKeyDelimiter = output.FLBPluginConfigKey(plugin, "RoutingKeyDelimiter")
-	removeRkValuesFromRecordString := output.FLBPluginConfigKey(plugin, "RemoveRkValuesFromRecord")
+	removeRkValuesFromRecordStr := output.FLBPluginConfigKey(plugin, "RemoveRkValuesFromRecord")
+	addTagToRecordStr := output.FLBPluginConfigKey(plugin, "AddTagToRecord")
+	addTimestampToRecordStr := output.FLBPluginConfigKey(plugin, "AddTimestampToRecord")
 
 	if len(routingKeyDelimiter) < 1 {
 		routingKeyDelimiter = "."
 		logInfo("The routing-key-delimiter is set to the default value '" + routingKeyDelimiter + "' ")
 	}
 
-	removeRkValuesFromRecord, err = strconv.ParseBool(removeRkValuesFromRecordString)
-
+	removeRkValuesFromRecord, err = strconv.ParseBool(removeRkValuesFromRecordStr)
 	if err != nil {
 		logError("Couldn't parse RemoveRkValuesFromRecord to boolean: ", err)
+		return output.FLB_ERROR
+	}
+
+	addTagToRecord, err = strconv.ParseBool(addTagToRecordStr)
+	if err != nil {
+		logError("Couldn't parse AddTagToRecord to boolean: ", err)
+		return output.FLB_ERROR
+	}
+
+	addTimestampToRecord, err = strconv.ParseBool(addTimestampToRecordStr)
+	if err != nil {
+		logError("Couldn't parse AddTimestampToRecord to boolean: ", err)
 		return output.FLB_ERROR
 	}
 
@@ -111,8 +126,12 @@ func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int 
 
 		parsedRecord := ParseRecord(record)
 
-		parsedRecord["@timestamp"] = timestamp.String()
-		parsedRecord["@tag"] = C.GoString(tag)
+		if addTagToRecord {
+			parsedRecord["@tag"] = C.GoString(tag)
+		}
+		if addTimestampToRecord {
+			parsedRecord["@timestamp"] = timestamp.String()
+		}
 
 		rk, err := CreateRoutingKey(routingKey, &parsedRecord, routingKeyDelimiter)
 		if err != nil {
