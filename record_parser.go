@@ -18,7 +18,7 @@ func ParseRecord(mapInterface map[interface{}]interface{}) map[string]interface{
 	return parsedMap
 }
 
-func parseSubRecordArray(arr []interface{}) []interface{} {
+func parseSubRecordArray(arr []interface{}) *[]interface{} {
 	for idx, i := range arr {
 		switch t := i.(type) {
 		case []byte:
@@ -31,5 +31,5 @@ func parseSubRecordArray(arr []interface{}) []interface{} {
 			arr[idx] = t
 		}
 	}
-	return arr
+	return &arr
 }

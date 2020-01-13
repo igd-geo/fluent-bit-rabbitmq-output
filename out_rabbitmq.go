@@ -114,7 +114,7 @@ func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int 
 		parsedRecord["@timestamp"] = timestamp.String()
 		parsedRecord["@tag"] = C.GoString(tag)
 
-		rk, err := CreateRoutingKey(routingKey, parsedRecord, routingKeyDelimiter)
+		rk, err := CreateRoutingKey(routingKey, &parsedRecord, routingKeyDelimiter)
 		if err != nil {
 			logError("Couldn't create the Routing-Key", err)
 			continue
