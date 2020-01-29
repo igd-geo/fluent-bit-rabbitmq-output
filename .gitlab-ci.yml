@@ -1,0 +1,16 @@
+build_image:
+    image: docker:stable
+    stage: build
+    services:
+    - docker:dind
+    variables:
+      UPSTREAM_IMAGE: $CI_REGISTRY/fluent-bit-rabbitmq-output/$CI_PROJECT_NAME
+      DOCKER_HOST: tcp://docker:2375/
+    before_script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
+    script:
+    - docker pull $UPSTREAM_IMAGE:latest || true
+    - docker build --cache-from $UPSTREAM_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_BUILD_REF --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME --tag $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE:$CI_BUILD_REF
+    - if [ "${CI_COMMIT_REF_NAME}" != "master" ]; then docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME; fi;
+    - if [ "${CI_COMMIT_REF_NAME}" == "master" ]; then docker push $CI_REGISTRY_IMAGE:latest; fi;
