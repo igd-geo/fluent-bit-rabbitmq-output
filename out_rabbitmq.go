@@ -20,7 +20,7 @@ var (
 	removeRkValuesFromRecord bool
 	addTagToRecord           bool
 	addTimestampToRecord     bool
-	amqps					 bool
+	amqps                    bool
 )
 
 //export FLBPluginRegister
