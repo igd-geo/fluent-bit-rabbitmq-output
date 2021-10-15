@@ -20,6 +20,7 @@ var (
 	removeRkValuesFromRecord bool
 	addTagToRecord           bool
 	addTimestampToRecord     bool
+	amqps                    bool
 )
 
 //export FLBPluginRegister
@@ -44,6 +45,9 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 	removeRkValuesFromRecordStr := output.FLBPluginConfigKey(plugin, "RemoveRkValuesFromRecord")
 	addTagToRecordStr := output.FLBPluginConfigKey(plugin, "AddTagToRecord")
 	addTimestampToRecordStr := output.FLBPluginConfigKey(plugin, "AddTimestampToRecord")
+	amqpsStr := output.FLBPluginConfigKey(plugin, "AMQPS")
+
+	var urlPrefix = "amqp"
 
 	if len(routingKeyDelimiter) < 1 {
 		routingKeyDelimiter = "."
@@ -74,7 +78,18 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 		return output.FLB_ERROR
 	}
 
-	connection, err = amqp.Dial("amqp://" + user + ":" + password + "@" + host + ":" + port + "/")
+	amqps, err = strconv.ParseBool(amqpsStr)
+	if len(amqpsStr) == 0 {
+		logInfo("The AMQPS value was not, using default value of 'false', amqp protocol")
+	}
+	if err != nil {
+		logInfo("Couldn't parse amqps to boolean, using amqp")
+	}
+	if err == nil && amqps {
+		urlPrefix = "amqps"
+	}
+
+	connection, err = amqp.Dial(urlPrefix + "://" + user + ":" + password + "@" + host + ":" + port + "/")
 	if err != nil {
 		logError("Failed to establish a connection to RabbitMQ: ", err)
 		return output.FLB_ERROR
