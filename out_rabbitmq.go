@@ -20,6 +20,7 @@ var (
 	removeRkValuesFromRecord bool
 	addTagToRecord           bool
 	addTimestampToRecord     bool
+	vhost                    string
 )
 
 //export FLBPluginRegister
@@ -44,10 +45,16 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 	removeRkValuesFromRecordStr := output.FLBPluginConfigKey(plugin, "RemoveRkValuesFromRecord")
 	addTagToRecordStr := output.FLBPluginConfigKey(plugin, "AddTagToRecord")
 	addTimestampToRecordStr := output.FLBPluginConfigKey(plugin, "AddTimestampToRecord")
+	vhost := output.FLBPluginConfigKey(plugin, "RabbitVHost")
 
 	if len(routingKeyDelimiter) < 1 {
 		routingKeyDelimiter = "."
 		logInfo("The routing-key-delimiter is set to the default value '" + routingKeyDelimiter + "' ")
+	}
+
+	if len(vhost) < 1 {
+		vhost = "/"
+		logInfo("Use default vhost /")
 	}
 
 	removeRkValuesFromRecord, err = strconv.ParseBool(removeRkValuesFromRecordStr)
@@ -74,9 +81,24 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 		return output.FLB_ERROR
 	}
 
-	connection, err = amqp.Dial("amqp://" + user + ":" + password + "@" + host + ":" + port + "/")
+	portInt, err := strconv.Atoi(port)
+	if err != nil {
+		logError("Error convert port to integer", err)
+		return output.FLB_ERROR
+	}
+	config := amqp.URI{
+		Scheme:   "amqp",
+		Host:     host,
+		Port:     portInt,
+		Username: user,
+		Password: password,
+		Vhost:    vhost,
+	}
+
+	connection, err = amqp.Dial(config.String())
 	if err != nil {
 		logError("Failed to establish a connection to RabbitMQ: ", err)
+		logError("connection: "+config.String(), err)
 		return output.FLB_ERROR
 	}
 
