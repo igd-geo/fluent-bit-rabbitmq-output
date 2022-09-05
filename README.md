@@ -25,7 +25,7 @@ build
 | RoutingKey                   | The routing-key pattern                                                                         | ""            |
 | RoutingKeyDelimiter          | The Delemiter which seperates the routing-key parts                                             |  "."          |
 | RemoveRkValuesFromRecord     | If enabled fluentd deletes the values of the record,  which have been stored in the routing-key | ""            |
-| RabbitVHost                  | Vhost                                                                                           | ""            |
+| RabbitVHost                  | The vhost                                                                                       | "/"           |
 
 ### Routing-Key pattern
 
