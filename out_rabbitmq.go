@@ -20,7 +20,6 @@ var (
 	removeRkValuesFromRecord bool
 	addTagToRecord           bool
 	addTimestampToRecord     bool
-	vhost                    string
 )
 
 //export FLBPluginRegister
