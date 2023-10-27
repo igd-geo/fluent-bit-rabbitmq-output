@@ -7,4 +7,4 @@ require (
         github.com/rabbitmq/amqp091-go v1.9.0
 )
 
-require github.com/ugorji/go/codec v1.1.7 // indirec
+require github.com/ugorji/go/codec v1.1.7 // indirect
