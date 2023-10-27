@@ -1,4 +1,4 @@
-FROM golang:1.21-bullseye as building-stage
+FROM golang:1.20-bullseye as building-stage
 
 RUN go install github.com/fluent/fluent-bit-go/output@latest; exit 0 && \ 
     go install github.com/rabbitmq/amqp091-go@latest; exit 0
