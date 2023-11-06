@@ -8,7 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/fluent/fluent-bit-go/output"
-	"github.com/streadway/amqp"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 var (
@@ -20,6 +20,7 @@ var (
 	removeRkValuesFromRecord bool
 	addTagToRecord           bool
 	addTimestampToRecord     bool
+	contentEncoding          string
 )
 
 //export FLBPluginRegister
@@ -44,6 +45,7 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 	removeRkValuesFromRecordStr := output.FLBPluginConfigKey(plugin, "RemoveRkValuesFromRecord")
 	addTagToRecordStr := output.FLBPluginConfigKey(plugin, "AddTagToRecord")
 	addTimestampToRecordStr := output.FLBPluginConfigKey(plugin, "AddTimestampToRecord")
+	contentEncoding := output.FLBPluginConfigKey(plugin, "ContentEncoding")
 
 	if len(routingKeyDelimiter) < 1 {
 		routingKeyDelimiter = "."
@@ -72,6 +74,10 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 	if err != nil {
 		logError("The Parsing of the Routing-Key failed: ", err)
 		return output.FLB_ERROR
+	}
+
+	if len(contentEncoding) < 1 {
+		contentEncoding = ""
 	}
 
 	connection, err = amqp.Dial("amqp://" + user + ":" + password + "@" + host + ":" + port + "/")
@@ -152,8 +158,9 @@ func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int 
 			false,        // mandatory
 			false,        // immediate
 			amqp.Publishing{
-				ContentType: "application/json",
-				Body:        jsonString,
+				ContentType:     "application/json",
+				ContentEncoding: contentEncoding,
+				Body:            jsonString,
 			})
 		if err != nil {
 			logError("Couldn't publish record: ", err)

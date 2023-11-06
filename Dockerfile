@@ -1,17 +1,19 @@
-FROM golang:1.13  as building-stage
+FROM golang:1.20-bullseye as building-stage
 
-RUN go get github.com/fluent/fluent-bit-go/output && \ 
-    go get github.com/streadway/amqp
+RUN go install github.com/fluent/fluent-bit-go/output@latest; exit 0 && \ 
+    go install github.com/rabbitmq/amqp091-go@latest; exit 0
+    
 
 COPY ./*.go /go/src/
-
+COPY ./go.mod /go/src/
+COPY ./go.sum /go/src/
 COPY ./Makefile /go/src
 
 WORKDIR /go/src
 
 RUN make
 
-FROM fluent/fluent-bit:1.3
+FROM fluent/fluent-bit:2.1
 
 LABEL maintainer="Björn Franke"
 
