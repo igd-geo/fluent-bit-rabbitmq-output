@@ -35,6 +35,7 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 
 	host := output.FLBPluginConfigKey(plugin, "RabbitHost")
 	port := output.FLBPluginConfigKey(plugin, "RabbitPort")
+	vhost := output.FLBPluginConfigKey(plugin, "RabbitVHost")
 	user := output.FLBPluginConfigKey(plugin, "RabbitUser")
 	password := output.FLBPluginConfigKey(plugin, "RabbitPassword")
 	exchangeName = output.FLBPluginConfigKey(plugin, "ExchangeName")
@@ -74,7 +75,7 @@ func FLBPluginInit(plugin unsafe.Pointer) int {
 		return output.FLB_ERROR
 	}
 
-	connection, err = amqp.Dial("amqp://" + user + ":" + password + "@" + host + ":" + port + "/")
+	connection, err = amqp.Dial("amqp://" + user + ":" + password + "@" + host + ":" + port + "/"+ vhost)
 	if err != nil {
 		logError("Failed to establish a connection to RabbitMQ: ", err)
 		return output.FLB_ERROR
